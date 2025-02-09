@@ -30,7 +30,7 @@ if Recursive then
 	file = get_shell.host_computer.File(origFile)
 	if not file then exit("deciphers: can't find " + origFile)
 	if not file.has_permission("r") then exit("deciphers: can't read folder. Permission denied")
-	if not file.has_permission("w") then
+	if WriteFile and not file.has_permission("w") then
 		print("deciphers: can't write file. Change to read only")
 		WriteFile = false
 	end if
@@ -42,7 +42,14 @@ if Recursive then
 		if target.is_folder then
 			queue = queue + target.get_files
 			queue = queue + target.get_folders
+			continue
 		end if
+		
+		if not target then continue
+		if target.is_binary then continue
+		if not target.has_permission("r") then continue
+		if WriteFile and not target.has_permission("w") then continue
+		if target.get_content.len == 0 then continue
 		
 		lines = target.get_content.split("\n")
 		password = null
@@ -78,7 +85,7 @@ file = get_shell.host_computer.File(origFile)
 if not file then exit("decipher: can't find " + origFile)
 if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
 if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
-if not file.has_permission("w") then
+if WriteFile and not file.has_permission("w") then
 	print("deciphers: can't write file. Change to read only")
 	WriteFile = false
 end if
