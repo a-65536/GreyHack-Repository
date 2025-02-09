@@ -1,5 +1,5 @@
 cryptools = include_lib("/lib/crypto.so")
-if cryptools == null then exit("Error: Crypto.so not found")
+if cryptools == null then exit("Error: Missing crypto library")
 
 if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: airconnect [target wifi] [opt:max acks]</b>")	
 maxAcks = 7000
