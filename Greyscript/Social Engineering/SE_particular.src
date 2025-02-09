@@ -41,9 +41,9 @@ for mail in mails
 	Address = Content.split(",")[1]
 	info = whois(Address).split(char(10))
 	
-	print("--------")
+	print("----------")
 	print("To: " + info[2][15:])
 	print("User_Name: " + Name)
 	print("Sign: " + info[1].split(" ")[-1])
 end for
-print("--------")
+print("----------")
