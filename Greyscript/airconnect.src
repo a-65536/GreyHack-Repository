@@ -1,5 +1,5 @@
 cryptools = include_lib("/lib/crypto.so")
-if cryptools == null then exit("Error: Missing crypto library")
+if cryptools == null then exit("airconnect: Missing crypto library")
 
 if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: airconnect [target wifi] [opt:max acks]</b>")	
 maxAcks = 7000
@@ -10,7 +10,7 @@ devices = computer.network_devices
 
 if devices == null or devices.indexOf("wlan0") == null then exit("airconnect: Network device not found")
 networks = computer.wifi_networks("wlan0")
-if networks == null then exit("Error: No network result")
+if networks == null then exit("airconnect: No network result")
 
 essid = params[0]
 bssid = null
