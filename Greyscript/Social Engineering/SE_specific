@@ -42,7 +42,7 @@ for mail in mails
 	info = whois(Address).split(char(10))
 	
 	print("--------")
-	print("To: " + info[0][13:])
+	print("To: " + info[2][15:])
 	print("User_Name: " + Name)
 	print("Sign: " + info[1].split(" ")[-1])
 end for
