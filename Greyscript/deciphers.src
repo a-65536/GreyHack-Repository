@@ -7,6 +7,7 @@ passwds = {
 
 GetPassword = function(userPass)
 	if userPass.len != 2 then return null
+	if userPass[1].len < 30 then return null
 	if passwds.hasIndex(userPass[1]) == 1 then return passwds[userPass[1]]
 	password = cryptools.decipher(userPass[1])
 	passwds[userPass[1]] = password
@@ -17,6 +18,7 @@ if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help
 WriteFile = false
 Recursive = false
 if params.len == 2 then
+	params[1] = params[1].upper
 	if params[1].indexOf("-W") != null then WriteFile = true
 	if params[1].indexOf("-R") != null then Recursive = true
 end if
