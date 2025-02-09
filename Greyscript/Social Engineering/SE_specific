@@ -1,0 +1,49 @@
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: SE_specific [password]</b>")	
+
+metaMail = mail_login(user_mail_address, params[0])
+if metaMail == null then exit("Error: Failed to login")
+
+mails = metaMail.fetch
+for i in range(len(mails)-1)
+	mail = mails[i]
+	
+	segments = mail.split(char(10))
+	MailID = mail.split(char(10))[2][8:]
+	From = segments[3][6:]
+	Subject = segments[4][9:]
+	mail = metaMail.read(MailID).trim
+	while mail.indexOf("<b>") != null
+		mail = mail.remove("<b>")
+		mail = mail.remove("</b>")
+	end while
+	mail = mail.remove("From: "+From)
+	mail = mail.remove("Subject: "+Subject)
+	mail = mail.trim
+	mails[i] = {
+		"MailID": MailID,
+		"From": From,
+		"Subject": Subject,
+		"Content": mail,
+	}
+end for
+
+for mail in mails
+	Content = mail.Content
+	
+	if mail.Subject != "Mission Contract" then continue
+	if Content.indexOf("The client wants the login credentials of the user ") == null then continue
+	
+	Content = Content.remove("The client wants the login credentials of the user ").remove("."+char(10))
+	Content = Content.replace("The remote ip of the victim is ", ",")
+	Content = Content.replace(". It's important that you access the correct machine behind the public ip. The victim's ip LAN is ", ",")
+	
+	Name = Content.split(",")[0]
+	Address = Content.split(",")[1]
+	info = whois(Address).split(char(10))
+	
+	print("--------")
+	print("To: " + info[0][13:])
+	print("User_Name: " + Name)
+	print("Sign: " + info[1].split(" ")[-1])
+end for
+print("--------")
