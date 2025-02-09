@@ -1,0 +1,140 @@
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then exit("Error: Missing crypto library")
+
+passwds = {
+	"9003d1df22eb4d3820015070385194c8": "pwd",
+}
+
+GetPassword = function(userPass)
+	if userPass.len != 2 then return null
+	if passwds.hasIndex(userPass[1]) == 1 then return passwds[userPass[1]]
+	password = cryptools.decipher(userPass[1])
+	passwds[userPass[1]] = password
+	return password
+end function
+
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>deciphers [encrypted file] [opt:-W/-R]</b>")
+WriteFile = false
+Recursive = false
+if params.len == 2 then
+	if params[1].indexOf("-W") != null then WriteFile = true
+	if params[1].indexOf("-R") != null then Recursive = true
+end if
+
+
+
+if Recursive then
+	origFile = params[0]
+	file = get_shell.host_computer.File(origFile)
+	if not file then exit("deciphers: can't find " + origFile)
+	if not file.has_permission("r") then exit("deciphers: can't read folder. Permission denied")
+	if not file.has_permission("w") then
+		print("deciphers: can't write file. Change to read only")
+		WriteFile = false
+	end if
+	if not file.is_folder then exit("deciphers: " + origFile + " is not a folder")
+	
+	queue = file.get_files + file.get_folders
+	while len(queue) != 0
+		target = queue.pull
+		if target.is_folder then
+			queue = queue + target.get_files
+			queue = queue + target.get_folders
+		end if
+		
+		lines = target.get_content.split("\n")
+		password = null
+		if lines.len == 1 then
+			userPass = lines[0].split(":")
+			password = GetPassword(userPass)
+			if password then print(userPass[0] + " => " + password)
+			if password and WriteFile then
+				content = target.get_content
+				content = content.replace(userPass[1], password)
+				target.set_content(content)
+			end if
+		else
+			for i in range(0,len(lines)-1)
+				userPass = lines[i].split(":")
+				password = GetPassword(userPass)
+				if password then print(userPass[0] + " => " + password)
+				if password and WriteFile then
+					content = target.get_content
+					content = content.replace(userPass[1], password)
+					target.set_content(content)
+				end if
+			end for
+		end if
+	end while
+	exit("Program ended")
+end if
+
+
+
+origFile = params[0]
+file = get_shell.host_computer.File(origFile)
+if not file then exit("decipher: can't find " + origFile)
+if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
+if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
+if not file.has_permission("w") then
+	print("deciphers: can't write file. Change to read only")
+	WriteFile = false
+end if
+if file.get_content.len == 0 then exit("decipher: no users found")
+
+lines = file.get_content.split("\n")
+password = null
+if lines.len == 1 then
+	userPass = lines[0].split(":")
+	password = GetPassword(userPass)
+	if not password then exit("Can't find password :(")
+	print("password found! => " + password)
+	if WriteFile then
+		content = file.get_content
+		content = content.replace(userPass[1], password)
+		file.set_content(content)
+	end if
+else
+	print("Multiple users found.")
+	numLine = 1
+	for line in lines
+		if line.len > 0 then
+			print(numLine + ": " + line)
+			numLine = numLine + 1
+		end if
+	end for
+	option = ""
+	inputOk = false
+	while( not inputOk )
+		option = user_input("Select user: ").to_int
+		if option == "*" then
+			for i in range(0,len(lines)-1)
+				userPass = lines[i].split(":")
+				password = GetPassword(userPass)
+				if password then print(userPass[0] + " => " + password)
+				if password and WriteFile then
+					content = file.get_content
+					content = content.replace(userPass[1], password)
+					file.set_content(content)
+				end if
+			end for
+			exit("Program ended")
+			
+		else if typeof(option) != "number" or (option < 1 or option > lines.len) then
+			print("Invalid input. Type a valid number")
+		else 
+			inputOk = true
+		end if
+	end while
+		
+	userPass = lines[option - 1].split(":")
+	print("Selected user: " + userPass[0] + "\nDeciphering...")
+	password = GetPassword(userPass)
+	if not password then exit("Can't find password :(")
+	print("password found! => " + password)
+	if WriteFile then
+		content = file.get_content
+		content = content.replace(userPass[1], password)
+		file.set_content(content)
+	end if
+end if
