@@ -18,7 +18,9 @@ if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help
 WriteFile = false
 Recursive = false
 if params.len == 2 then
-	params[1] = params[1].upper
+	tmp = params[0]
+	params[0] = params[1]
+	params[1] = tmp.upper
 	if params[1].indexOf("-W") != null then WriteFile = true
 	if params[1].indexOf("-R") != null then Recursive = true
 end if
