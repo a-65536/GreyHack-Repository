@@ -1,4 +1,4 @@
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: SE_specific [password]</b>")	
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: SE_particular [password]</b>")	
 
 metaMail = mail_login(user_mail_address, params[0])
 if metaMail == null then exit("Error: Failed to login")
