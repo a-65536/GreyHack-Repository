@@ -1,0 +1,47 @@
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: mailparser [user] (:) [password]</b>")	
+
+if params.len == 1 then params = params[0].split(":")
+
+metaMail = mail_login(params[0], params[1])
+if metaMail == null then exit("Error: Failed to login")
+
+mails = metaMail.fetch
+for i in range(len(mails)-1)
+	mail = mails[i]
+	
+	segments = mail.split(char(10))
+	MailID = mail.split(char(10))[2][8:]
+	From = segments[3][6:]
+	Subject = segments[4][9:]
+	mail = metaMail.read(MailID).trim
+	mail = mail.remove("From: "+From)
+	mail = mail.remove("Subject: "+Subject)
+	mail = mail.trim
+	mails[i] = {
+		"MailID": MailID,
+		"From": From,
+		"Subject": Subject,
+		"Content": mail,
+	}
+end for
+
+content = ""
+for mail in mails
+	content = content + "MailID: " + mail.MailID + char(10)
+	content = content + "From: " + mail.From + char(10)
+	content = content + "Subject: " + mail.Subject + char(10)
+	content = content + "----------" + char(10)
+	content = content + mail.Content + char(10)
+	content = content + char(10)*2
+end for
+content = content.trim
+
+computer = host_computer(get_shell)
+filepath = "/home/" + active_user + "/Downloads"
+filename = params[0] + ".txt"
+filename = filename.replace("@", ".")
+touch(computer, filepath, filename)
+
+file = File(computer, filepath + "/" + filename)
+if file == null then exit("Error: Failed to create file")
+file.set_content(content)
