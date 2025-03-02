@@ -14,7 +14,7 @@ GetPassword = function(userPass)
 	return password
 end function
 
-if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>deciphers [encrypted file] [opt:-W/-R]</b>")
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>deciphers [opt:-W/-R] [encrypted file]</b>")
 WriteFile = false
 Recursive = false
 if params.len == 2 then
