@@ -1,0 +1,21 @@
+if params.len < 4 or params.len > 5 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [ip_address] [port] [memAddr] [unsecVal] [opt:otherParams]</b>")
+metaxploit = include_lib("/lib/metaxploit.so")
+if not metaxploit then
+    metaxploit = include_lib(current_path + "/metaxploit.so")
+end if
+if not metaxploit then exit("Error: Can't find metaxploit library in the /lib path or the current folder")
+address = params[0]
+port = params[1].to_int
+if port == 0 then
+	net_session = metaxploit.net_use( address )
+else
+	net_session = metaxploit.net_use( address, port )
+end if
+if not net_session then exit("Error: can't connect to net session")
+metaLib = net_session.dump_lib
+if params.len == 4 then
+	result = metaLib.overflow(params[2], params[3])
+else
+	result = metaLib.overflow(params[2], params[3], params[4])
+end if
+if not result then exit("Program ended")
