@@ -41,9 +41,19 @@ for mail in mails
 	Address = Content.split(",")[1]
 	info = whois(Address).split(char(10))
 	
+	To = info[2][15:]
+	User_Name = Name
+	Sign = info[1].split(" ")[-1]
+	
+	if User_Name == Sign then
+		print("----------")
+		print("Failed at user: " + User_Name)
+		print("Target is Administrator")
+	end if
+	
 	print("----------")
-	print("To: " + info[2][15:])
-	print("User_Name: " + Name)
-	print("Sign: " + info[1].split(" ")[-1])
+	print("To: " + To)
+	print("User_Name: " + User_Name)
+	print("Sign: " + Sign)
 end for
 print("----------")
