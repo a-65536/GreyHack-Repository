@@ -28,9 +28,10 @@ for i in range(len(mails)-1)
 end for
 
 for mail in mails
-	Content = mail.Content
-	
-	if mail.From != user_mail_address then continue
+	skip = true
+	if mail.From == user_mail_address then skip = false
+	if mail.Content.indexOf("The customer is satisfied with the job.") != null then skip = false
+	if skip then continue
 	
 	print("----------")
 	print("MailID: " + mail.MailID)
