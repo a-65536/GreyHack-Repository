@@ -1,0 +1,45 @@
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: SE_delete [password]</b>")	
+
+metaMail = mail_login(user_mail_address, params[0])
+if metaMail == null then exit("Error: Failed to login")
+
+mails = metaMail.fetch
+for i in range(len(mails)-1)
+	mail = mails[i]
+	
+	segments = mail.split(char(10))
+	MailID = mail.split(char(10))[2][8:]
+	From = segments[3][6:]
+	Subject = segments[4][9:]
+	mail = metaMail.read(MailID).trim
+	while mail.indexOf("<b>") != null
+		mail = mail.remove("<b>")
+		mail = mail.remove("</b>")
+	end while
+	mail = mail.remove("From: "+From)
+	mail = mail.remove("Subject: "+Subject)
+	mail = mail.trim
+	mails[i] = {
+		"MailID": MailID,
+		"From": From,
+		"Subject": Subject,
+		"Content": mail,
+	}
+end for
+
+for mail in mails
+	Content = mail.Content
+	
+	if mail.From != user_mail_address then continue
+	
+	print("----------")
+	print("MailID: " + mail.MailID)
+	print("From: " + mail.From)
+	print("Subject: " + mail.Subject)
+	
+	confirm = user_input("Confirm? (y/n) ")
+	if confirm == "y" then
+		metaMail.delete(mail.MailID)
+	end if
+end for
+print("----------")
