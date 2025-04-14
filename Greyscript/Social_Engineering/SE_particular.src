@@ -1,6 +1,12 @@
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: SE_particular [password]</b>")	
+if params.len > 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: SE_particular [(opt) password]</b>")	
 
-metaMail = mail_login(user_mail_address, params[0])
+if params.len == 0 then 
+	password = user_input("Password: ", true)
+else 
+	password = params[0]
+end if
+
+metaMail = mail_login(user_mail_address, password)
 if metaMail == null then exit("Error: Failed to login")
 
 mails = metaMail.fetch
@@ -49,6 +55,7 @@ for mail in mails
 		print("----------")
 		print("Failed at user: " + User_Name)
 		print("Target is Administrator")
+		continue
 	end if
 	
 	print("----------")
