@@ -1,0 +1,36 @@
+if params.len > 1 or (params.len == 1 and ( params[0] == "-h" or params[0] == "--help" ) ) then exit("<b>Usage: netfastlogin [(opt) password]</b>")
+
+if params.len == 0 then 
+	password = user_input("Network password: ", true)
+else 
+	password = params[0]
+end if
+
+content = "if params.len < 1 or params.len > 2 or params[0] == '-h' or params[0] == '--help' then exit('<b>Usage: " + password + " [ip address] [(opt) port]</b>')"
+content = content + char(10) + "user = 'root'"
+content = content + char(10) + "password = '" + password + "'"
+content = content + char(10) + ""
+content = content + char(10) + "port = 22"
+content = content + char(10) + "if params.len == 2 then port = params[1].to_int"
+content = content + char(10) + "if typeof(port) != 'number' then exit('Invalid port: ' + port)"
+content = content + char(10) + "print('Connecting...')"
+content = content + char(10) + ""
+content = content + char(10) + "shell = get_shell.connect_service(params[0], port, user, password, 'ssh')"
+content = content + char(10) + "if typeof(shell) == 'string' then exit(shell)"
+content = content + char(10) + "if shell then "
+content = content + char(10) + "    shell.start_terminal"
+content = content + char(10) + "else "
+content = content + char(10) + "    print('connection failed')"
+content = content + char(10) + "end if"
+
+content = content.replace("'", char(34))
+
+computer = get_shell.host_computer
+createResult = computer.touch(current_path, password + ".src")
+if typeof(createResult) == "string" and createResult != "The file already exists" then exit("Error: unable to create file " + password + ".src - " + createResult)
+
+filePath = current_path + "/" + password + ".src"
+file = computer.File(filePath)
+setResult = file.set_content(content)
+if typeof(setResult) == "string" then exit("Error: unable to set content - " + setResult)
+print("Program ended")
