@@ -21,7 +21,7 @@ if params.len == 2 then
 	params[1] = params[1].upper
 	if params[0].indexOf("-W") != null then WriteFile = true
 	if params[0].indexOf("-R") != null then Recursive = true
-	if params[0].indexOf("-md5") != null then
+	if params[0].indexOf("-MD5") != null then
 		exit(GetPassword(["user", params[1]]))
 	end if
 end if
