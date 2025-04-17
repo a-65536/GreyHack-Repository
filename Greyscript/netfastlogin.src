@@ -1,4 +1,4 @@
-if params.len > 1 or (params.len == 1 and ( params[0] == "-h" or params[0] == "--help" ) ) then exit("<b>Usage: netfastlogin [(opt) password]</b>")
+if params.len > 1 or (params.len == 1 and ( params[0] == "-h" or params[0] == "--help" ) ) then exit("<b>Usage: netfastlogin (password)</b>")
 
 if params.len == 0 then 
 	password = user_input("Network password: ", true)
@@ -6,7 +6,7 @@ else
 	password = params[0]
 end if
 
-content = "if params.len < 1 or params.len > 2 or params[0] == '-h' or params[0] == '--help' then exit('<b>Usage: " + password + " [ip address] [(opt) port]</b>')"
+content = "if params.len < 1 or params.len > 2 or params[0] == '-h' or params[0] == '--help' then exit('<b>Usage: " + password + " [ip address] (port)</b>')"
 content = content + char(10) + "user = 'root'"
 content = content + char(10) + "password = '" + password + "'"
 content = content + char(10) + ""
