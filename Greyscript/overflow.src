@@ -1,4 +1,4 @@
-if params.len < 4 or params.len > 5 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [ip_address] [port] [memAddr] [unsecVal] [opt:otherParams]</b>")
+if params.len < 4 or params.len > 5 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [ip_address] [port] [memAddr] [unsecVal] (otherParams)</b>")
 metaxploit = include_lib("/lib/metaxploit.so")
 if not metaxploit then
     metaxploit = include_lib(current_path + "/metaxploit.so")
@@ -19,3 +19,9 @@ else
 	result = metaLib.overflow(params[2], params[3], params[4])
 end if
 if not result then exit("Program ended")
+
+if typeof(result) == "shell" then
+	result.start_terminal
+else
+	print(typeof(result))
+end if
