@@ -38,6 +38,6 @@ end if
 
 
 deleteResult = file.delete
-if typeof(deleteResult) == "string" and deletionResult.len > 0 then
+if typeof(deleteResult) == "string" and deleteResult.len > 0 then
    print("Error: " + deleteResult + " when deleting file.cap")
 end if
