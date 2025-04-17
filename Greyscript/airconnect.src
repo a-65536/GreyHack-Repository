@@ -1,7 +1,7 @@
 cryptools = include_lib("/lib/crypto.so")
 if cryptools == null then exit("airconnect: Missing crypto library")
 
-if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: airconnect [target wifi] [opt:max acks]</b>")	
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: airconnect [target wifi] (max acks)</b>")	
 maxAcks = 7000
 if params.len == 2 then maxAcks = params[1]
 
@@ -26,7 +26,7 @@ if bssid == null then exit("Error: Can't find network " + essid)
 result = cryptools.aireplay(bssid, essid, maxAcks)
 
 file = computer.File("/home/"+active_user+"/file.cap")
-if file == null then exit("Error: file.cap not found: ")
+if file == null then exit("Error: file.cap not found")
 if not file.has_permission("r") then exit("Error: Permission denied")
 
 key = cryptools.aircrack(file.path)
