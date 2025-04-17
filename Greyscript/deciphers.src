@@ -14,21 +14,22 @@ GetPassword = function(userPass)
 	return password
 end function
 
-if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>deciphers [opt:-W/-R] [encrypted file]</b>")
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>deciphers (-W/-R/-md5) [encrypted file]</b>")
 WriteFile = false
 Recursive = false
 if params.len == 2 then
-	tmp = params[0]
-	params[0] = params[1]
-	params[1] = tmp.upper
-	if params[1].indexOf("-W") != null then WriteFile = true
-	if params[1].indexOf("-R") != null then Recursive = true
+	params[1] = params[1].upper
+	if params[0].indexOf("-W") != null then WriteFile = true
+	if params[0].indexOf("-R") != null then Recursive = true
+	if params[0].indexOf("-md5") != null then
+		exit(GetPassword(['user', params[1]]))
+	end if
 end if
 
 
 
 if Recursive then
-	origFile = params[0]
+	origFile = params[1]
 	file = get_shell.host_computer.File(origFile)
 	if not file then exit("deciphers: can't find " + origFile)
 	if not file.has_permission("r") then exit("deciphers: can't read folder. Permission denied")
@@ -82,7 +83,7 @@ end if
 
 
 
-origFile = params[0]
+origFile = params[1]
 file = get_shell.host_computer.File(origFile)
 if not file then exit("decipher: can't find " + origFile)
 if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
