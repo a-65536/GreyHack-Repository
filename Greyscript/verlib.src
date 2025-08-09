@@ -1,7 +1,10 @@
-if params.len > 1 or (params.len == 1 and (params[0] == "-h" or params[0] == "--help")) then exit("<b>verlib (lib name)</b>")
 metaxploit = include_lib("/lib/metaxploit.so")
 if not metaxploit then exit("Error: Missing metaxploit library")
+
+if params.len > 1 or (params.len == 1 and (params[0] == "-h" or params[0] == "--help")) then exit("<b>verlib (lib name)</b>")
+
 computer = get_shell.host_computer
+
 if params.len == 1 then
 	if params[0] == "kernel_router.so" then exit("lib " + params[0] + ": " + get_router.kernel_version)
 	libFile = computer.File("/lib/" + params[0])
