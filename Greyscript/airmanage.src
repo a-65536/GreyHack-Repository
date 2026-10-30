@@ -650,7 +650,7 @@ main = function()
 
 	command = cliArgs[0].lower
 	if command == "-v" or command == "--version" then
-		print("Airmanage v0.1.1")
+		print("Airmanage v1.0.1")
 		return
 	end if
 
