@@ -1,0 +1,747 @@
+// airmanage - Wi-Fi network manager for Grey Hack
+//
+// Stores networks in $HOME/AppData/airmanage/networks.db using one
+// tab-separated record per line: bssid, essid, password.
+//
+// Environment failures are reported as "airmanage: ...".
+// Usage, permission, data and other logic failures are reported as "Error: ...".
+
+printGeneralHelp = function()
+	print("<b>airmanage</b> - Wi-Fi network manager")
+	print("")
+	print("<b>Usage:</b>")
+	print("  <b>airmanage add</b> [bssid/essid] [password]")
+	print("  <b>airmanage remove</b> [bssid/essid]")
+	print("  <b>airmanage list</b>")
+	print("  <b>airmanage connect</b> [bssid/essid]")
+	print("  <b>airmanage -h</b> | <b>--help</b>")
+	print("  <b>airmanage -v</b> | <b>--version</b>")
+	print("")
+	print("<b>Commands:</b>")
+	print("  <b>add</b>      Add or update a saved Wi-Fi network.")
+	print("           The network identifier can be a BSSID or an ESSID.")
+	print("           If no password is supplied, <b>airmanage</b> asks for")
+	print("           confirmation and then cracks the password.")
+	print("  <b>remove</b>   Remove a saved Wi-Fi network after confirmation.")
+	print("  <b>list</b>     List saved networks as BSSID, PWR, ESSID, password.")
+	print("           PWR is blank when the network is not visible.")
+	print("  <b>connect</b>  Connect with saved credentials, or crack if needed.")
+	print("  <b>help</b>     Show general help, or help for a command.")
+	print("")
+	print("<b>Options:</b>")
+	print("  <b>-h</b>, <b>--help</b>       Show help.")
+	print("  <b>-v</b>, <b>--version</b>    Show version information.")
+	print("")
+	print("<b>Storage:</b>")
+	print("  " + home_dir + "/AppData/airmanage/networks.db")
+end function
+
+printAddHelp = function()
+	print("<b>Usage:</b> <b>airmanage add</b> [bssid/essid] [password]")
+	print("")
+	print("Add or update a Wi-Fi network in the local database.")
+	print("")
+	print("  <b>bssid</b>     A MAC address such as AA:BB:CC:DD:EE:FF.")
+	print("  <b>essid</b>     A Wi-Fi network name such as MyNetwork.")
+	print("  <b>password</b>  Optional. Stored as provided and never verified.")
+	print("")
+	print("If the password is omitted, <b>airmanage</b> asks for confirmation and")
+	print("then captures and cracks the password. Cracking requires a Wi-Fi")
+	print("card and the crypto library.")
+	print("")
+	print("<b>Options:</b>")
+	print("  <b>-h</b>, <b>--help</b>   Show this help.")
+end function
+
+printRemoveHelp = function()
+	print("<b>Usage:</b> <b>airmanage remove</b> [bssid/essid]")
+	print("")
+	print("Remove a saved Wi-Fi network after confirmation.")
+	print("")
+	print("  <b>bssid</b>     A MAC address such as AA:BB:CC:DD:EE:FF.")
+	print("  <b>essid</b>     A Wi-Fi network name such as MyNetwork.")
+	print("")
+	print("<b>Options:</b>")
+	print("  <b>-h</b>, <b>--help</b>   Show this help.")
+end function
+
+printListHelp = function()
+	print("<b>Usage:</b> <b>airmanage list</b>")
+	print("")
+	print("List all saved Wi-Fi networks.")
+	print("")
+	print("Each line uses this column order:")
+	print("  <b>BSSID</b>  <b>PWR</b>  <b>ESSID</b>  <b>password</b>")
+	print("")
+	print("<b>PWR</b> is the signal strength of the matching visible network.")
+	print("It is left blank when the network is not currently visible.")
+	print("Listing works without a Wi-Fi card or the crypto library.")
+	print("")
+	print("<b>Options:</b>")
+	print("  <b>-h</b>, <b>--help</b>   Show this help.")
+end function
+
+printConnectHelp = function()
+	print("<b>Usage:</b> <b>airmanage connect</b> [bssid/essid]")
+	print("")
+	print("Connect to a visible Wi-Fi network.")
+	print("")
+	print("  <b>bssid</b>     A MAC address such as AA:BB:CC:DD:EE:FF.")
+	print("  <b>essid</b>     A Wi-Fi network name such as MyNetwork.")
+	print("")
+	print("The network must be present in the current scan.")
+	print("If a saved record exists, its password is tried first.")
+	print("If the saved password is rejected, or no record exists,")
+	print("<b>airmanage</b> asks for confirmation before cracking the network.")
+	print("After a successful crack and connection, the password is saved.")
+	print("")
+	print("<b>Options:</b>")
+	print("  <b>-h</b>, <b>--help</b>   Show this help.")
+end function
+
+isHelpArg = function(value)
+	if value == null then return false
+	text = ("" + value).lower
+	return text == "-h" or text == "--help"
+end function
+
+isBssidValue = function(value)
+	if value == null then return false
+	parts = ("" + value).trim.split(":")
+	if parts.len != 6 then return false
+	for part in parts
+		if part.len != 2 then return false
+		if not part.is_match("^[0-9A-Fa-f]{2}$") then return false
+	end for
+	return true
+end function
+
+joinPath = function(folder, name)
+	if folder == null or folder == "" then return name
+	if folder == "/" then return "/" + name
+	if folder[folder.len - 1] == "/" then return folder + name
+	return folder + "/" + name
+end function
+
+padRight = function(value, width)
+	text = ""
+	if value != null then text = "" + value
+	if text.len >= width then return text + " "
+	return text + (" " * (width - text.len))
+end function
+
+failFileOperation = function(action, detail)
+	text = ""
+	if detail != null then text = ("" + detail)
+	if text.lower.indexOf("permission") != null or text.lower.indexOf("denied") != null then
+		exit("Error: Permission denied while " + action + ".")
+	end if
+	exit("airmanage: Unable to " + action + ": " + text)
+end function
+
+ensureFolder = function(computer, path, parentPath, name)
+	folder = computer.File(path)
+	if folder != null then
+		if folder.is_folder != 1 then
+			exit("Error: " + path + " exists but is not a folder.")
+		end if
+		return folder
+	end if
+	createResult = computer.create_folder(parentPath, name)
+	if typeof(createResult) == "string" then
+		failFileOperation("creating " + path, createResult)
+	end if
+	if createResult != 1 then
+		failFileOperation("creating " + path, "unknown error")
+	end if
+	folder = computer.File(path)
+	if folder == null then
+		exit("airmanage: Unable to access " + path + " after creating it.")
+	end if
+	return folder
+end function
+
+getComputer = function()
+	shell = get_shell
+	if shell == null then exit("airmanage: Unable to obtain a shell.")
+	computer = shell.host_computer
+	if computer == null then exit("airmanage: Unable to access the host computer.")
+	return computer
+end function
+
+ensureStore = function(computer)
+	userHome = "/home/" + active_user
+	if userHome == null or userHome == "/home/" or computer.File(userHome) == null then
+		userHome = home_dir
+	end if
+	if userHome == null or userHome == "" then
+		exit("airmanage: Unable to determine the home directory.")
+	end if
+	homeFolder = computer.File(userHome)
+	if homeFolder == null then
+		exit("airmanage: Home directory not found: " + userHome)
+	end if
+	if homeFolder.has_permission("w") != 1 then
+		exit("Error: Permission denied")
+	end if
+
+	appDataPath = joinPath(userHome, "AppData")
+	storePath = joinPath(appDataPath, "airmanage")
+	appDataFolder = ensureFolder(computer, appDataPath, userHome, "AppData")
+	if appDataFolder.has_permission("w") != 1 then
+		exit("Error: Permission denied: cannot write to " + appDataPath)
+	end if
+
+	storeFolder = ensureFolder(computer, storePath, appDataPath, "airmanage")
+	if storeFolder.has_permission("w") != 1 then
+		exit("Error: Permission denied: cannot write to " + storePath)
+	end if
+
+	databasePath = joinPath(storePath, "networks.db")
+	databaseFile = computer.File(databasePath)
+	if databaseFile == null then
+		touchResult = computer.touch(storePath, "networks.db")
+		if typeof(touchResult) == "string" then
+			failFileOperation("creating " + databasePath, touchResult)
+		end if
+		if touchResult != 1 then
+			failFileOperation("creating " + databasePath, "unknown error")
+		end if
+		databaseFile = computer.File(databasePath)
+	end if
+	if databaseFile == null then
+		exit("airmanage: Unable to access " + databasePath)
+	end if
+	if databaseFile.is_folder == 1 then
+		exit("Error: " + databasePath + " is a folder, not a file.")
+	end if
+	if databaseFile.has_permission("r") != 1 or databaseFile.has_permission("w") != 1 then
+		exit("Error: Permission denied")
+	end if
+
+	return {"path": databasePath, "file": databaseFile}
+end function
+
+loadEntries = function(store)
+	content = store.file.get_content
+	if content == null then
+		exit("Error: Unable to read " + store.path)
+	end if
+	entries = []
+	if content.trim == "" then return entries
+
+	lineNumber = 0
+	for line in content.split(char(10))
+		lineNumber = lineNumber + 1
+		row = line
+		if row.trim == "" then continue
+		if row[row.len - 1] == char(13) then row = row[:-1]
+		columns = row.split(char(9))
+		if columns.len != 3 then
+			exit("Error: Corrupt storage at line " + lineNumber + " in " + store.path)
+		end if
+		bssid = columns[0].trim
+		essid = columns[1]
+		password = columns[2]
+		if bssid == "" or essid == "" then
+			exit("Error: Corrupt storage at line " + lineNumber + " in " + store.path)
+		end if
+		entries.push({"bssid": bssid, "essid": essid, "password": password})
+	end for
+	return entries
+end function
+
+saveEntries = function(store, entries)
+	lines = []
+	for entry in entries
+		lines.push(entry.bssid + char(9) + entry.essid + char(9) + entry.password)
+	end for
+	saveResult = store.file.set_content(lines.join(char(10)))
+	if typeof(saveResult) == "string" then
+		failFileOperation("saving " + store.path, saveResult)
+	end if
+	if saveResult != 1 then
+		exit("Error: Unable to save " + store.path)
+	end if
+end function
+
+findByBssid = function(entries, bssid)
+	needle = bssid.lower
+	index = 0
+	for entry in entries
+		if entry.bssid.lower == needle then return index
+		index = index + 1
+	end for
+	return null
+end function
+
+findByEssid = function(entries, essid)
+	index = 0
+	for entry in entries
+		if entry.essid == essid then return index
+		index = index + 1
+	end for
+	return null
+end function
+
+findEntry = function(entries, identifier, identifierIsBssid)
+	if identifierIsBssid then return findByBssid(entries, identifier)
+	return findByEssid(entries, identifier)
+end function
+
+upsertEntry = function(entries, bssid, essid, password)
+	index = findByBssid(entries, bssid)
+	if index == null then index = findByEssid(entries, essid)
+	if index == null then
+		entries.push({"bssid": bssid, "essid": essid, "password": password})
+		return "added"
+	end if
+	entries[index] = {"bssid": bssid, "essid": essid, "password": password}
+	return "updated"
+end function
+
+isSafeField = function(value)
+	if value == null then return false
+	text = "" + value
+	if text.indexOf(char(9)) != null then return false
+	if text.indexOf(char(10)) != null then return false
+	if text.indexOf(char(13)) != null then return false
+	return true
+end function
+
+getWifiInterfaces = function(computer)
+	interfaces = []
+	devices = computer.network_devices
+	if devices == null then return interfaces
+	if devices.indexOf("wlan0") != null then interfaces.push("wlan0")
+
+	for line in devices.split(char(10))
+		for token in line.split("[^A-Za-z0-9]+")
+			if token.is_match("^wlan[0-9]+$") then
+				if interfaces.indexOf(token) == null then interfaces.push(token)
+			end if
+		end for
+	end for
+	return interfaces
+end function
+
+parseNetwork = function(raw)
+	if raw == null then return null
+	line = raw.trim
+	if line == "" then return null
+	firstSpace = line.indexOf(" ")
+	if firstSpace == null then return null
+	bssid = line[:firstSpace].trim
+	rest = line[firstSpace + 1:].trim
+	secondSpace = rest.indexOf(" ")
+	if secondSpace == null then return null
+	power = rest[:secondSpace].trim
+	essid = rest[secondSpace + 1:].trim
+	if bssid == "" or power == "" or essid == "" then return null
+	if not isBssidValue(bssid) then return null
+	return {"bssid": bssid, "pwr": power, "essid": essid}
+end function
+
+scanNetwork = function(computer, interfaces, identifier, identifierIsBssid)
+	sawNetworks = 0
+	for iface in interfaces
+		networks = computer.wifi_networks(iface)
+		if networks == null then continue
+		if networks.len > 0 then sawNetworks = 1
+		for raw in networks
+			network = parseNetwork(raw)
+			if network == null then continue
+			matched = false
+			if identifierIsBssid then
+				if network.bssid.lower == identifier.lower then matched = true
+			else
+				if network.essid == identifier then matched = true
+			end if
+			if matched then
+				network.iface = iface
+				return {"target": network, "saw": 1}
+			end if
+		end for
+	end for
+	return {"target": null, "saw": sawNetworks}
+end function
+
+collectSignals = function(computer, interfaces)
+	signals = {}
+	for iface in interfaces
+		networks = computer.wifi_networks(iface)
+		if networks == null then continue
+		for raw in networks
+			network = parseNetwork(raw)
+			if network == null then continue
+			key = network.bssid.lower
+			if signals.hasIndex(key) == 0 then signals[key] = network.pwr
+		end for
+	end for
+	return signals
+end function
+
+isPasswordFailure = function(result)
+	if typeof(result) != "string" then return false
+	return result.lower.indexOf("password") != null
+end function
+
+connectionFailure = function(result)
+	text = ""
+	if result != null and typeof(result) == "string" then text = result
+	if text == "" then
+		exit("airmanage: Unable to connect to the Wi-Fi network")
+	end if
+	lowerText = text.lower
+	if lowerText.indexOf("guest") != null or lowerText.indexOf("permission") != null then
+		exit("Error: " + text)
+	end if
+	if lowerText.indexOf("incorrect password") != null then
+		exit("Error: " + text)
+	end if
+	exit("airmanage: " + text)
+end function
+
+calculateAcks = function(powerText)
+	text = ""
+	if powerText != null then text = ("" + powerText).trim
+	if text == "" then return 7000
+	numberText = text.remove("%").trim
+	power = numberText.to_int
+	if typeof(power) != "number" then return 7000
+	if power <= 0 then return 7000
+	acks = floor(300000 / (power + 15))
+	if acks < 3000 then acks = 3000
+	if acks > 30000 then acks = 30000
+	return acks
+end function
+
+crackPassword = function(computer, target, cryptoTools)
+	if target.iface == null or target.iface == "" then
+		exit("airmanage: Network device not found")
+	end if
+
+	monitorResult = cryptoTools.airmon("start", target.iface)
+	if typeof(monitorResult) == "string" then
+		exit("airmanage: " + monitorResult)
+	end if
+	if monitorResult != 1 then
+		exit("airmanage: Unable to enable monitor mode on " + target.iface)
+	end if
+
+	acks = calculateAcks(target.pwr)
+	print("Cracking " + target.essid + ", please wait...")
+	playResult = cryptoTools.aireplay(target.bssid, target.essid, acks)
+	if typeof(playResult) == "string" then
+		exit("airmanage: " + playResult)
+	end if
+
+	capturePath = joinPath(current_path, "file.cap")
+	captureFile = computer.File(capturePath)
+	if captureFile == null or captureFile.is_folder == 1 then
+		captureFile = computer.File(joinPath(home_dir, "file.cap"))
+	end if
+	if captureFile == null or captureFile.is_folder == 1 then
+		exit("Error: file.cap not found")
+	end if
+	if captureFile.has_permission("r") != 1 then
+		exit("Error: Permission denied")
+	end if
+
+	key = cryptoTools.aircrack(captureFile.path)
+	deleteResult = captureFile.delete
+	if typeof(deleteResult) == "string" and deleteResult.len > 0 then
+		print("Error: " + deleteResult + " when deleting file.cap")
+	end if
+	if key == null or key == "" then
+		exit("airmanage: Unable to get the key")
+	end if
+	return key
+end function
+
+doAdd = function()
+	identifier = ("" + cliArgs[1]).trim
+	if identifier == "" then exit("Error: Network identifier cannot be empty.")
+
+	identifierIsBssid = isBssidValue(identifier)
+	passwordSupplied = cliArgs.len == 3
+	password = ""
+	if passwordSupplied then password = "" + cliArgs[2]
+	if not passwordSupplied or password == "" then
+		passwordSupplied = false
+		answer = user_input("No password supplied. Crack the password for '" + identifier + "' and add it? [y/N] ")
+		if answer == null then answer = ""
+		answer = answer.trim.lower
+		if answer != "y" and answer != "yes" then exit("Cancelled.")
+	end if
+
+	cryptoTools = null
+	if not passwordSupplied then
+		cryptoTools = include_lib("/lib/crypto.so")
+		if cryptoTools == null then exit("airmanage: Missing crypto library")
+	end if
+
+	computer = getComputer()
+	store = ensureStore(computer)
+	entries = loadEntries(store)
+	interfaces = getWifiInterfaces(computer)
+
+	scanResult = {"target": null, "saw": 0}
+	if interfaces.len > 0 then
+		scanResult = scanNetwork(computer, interfaces, identifier, identifierIsBssid)
+	end if
+	target = scanResult.target
+	if target == null then
+		index = findEntry(entries, identifier, identifierIsBssid)
+		if index != null then
+			known = entries[index]
+			target = {"bssid": known.bssid, "essid": known.essid, "pwr": "", "iface": ""}
+		end if
+	end if
+
+	if target == null then
+		if not passwordSupplied and interfaces.len == 0 then
+			exit("airmanage: Network device not found")
+		end if
+		if not passwordSupplied and scanResult.saw == 0 then
+			exit("airmanage: No network result")
+		end if
+		exit("Error: Can't find network " + identifier)
+	end if
+	if not passwordSupplied and (target.iface == null or target.iface == "") then
+		if interfaces.len == 0 then exit("airmanage: Network device not found")
+		exit("Error: Can't find network " + identifier)
+	end if
+
+	bssid = target.bssid
+	if identifierIsBssid then bssid = identifier
+	essid = target.essid
+	if bssid == "" or essid == "" then
+		exit("Error: Incomplete network information")
+	end if
+	if not isSafeField(bssid) or not isSafeField(essid) then
+		exit("Error: Network information contains unsupported characters")
+	end if
+
+	if not passwordSupplied then
+		password = crackPassword(computer, target, cryptoTools)
+	end if
+	if not isSafeField(password) then
+		exit("Error: Password contains unsupported characters")
+	end if
+
+	action = upsertEntry(entries, bssid, essid, password)
+	saveEntries(store, entries)
+	if action == "added" then
+		print("Added " + essid + " (" + bssid + ").")
+	else
+		print("Updated " + essid + " (" + bssid + ").")
+	end if
+	print("Password: " + password)
+end function
+
+doRemove = function()
+	identifier = ("" + cliArgs[1]).trim
+	if identifier == "" then exit("Error: Network identifier cannot be empty.")
+
+	computer = getComputer()
+	store = ensureStore(computer)
+	entries = loadEntries(store)
+	index = findEntry(entries, identifier, isBssidValue(identifier))
+	if index == null then exit("Error: Can't find network " + identifier)
+	entry = entries[index]
+
+	answer = user_input("Remove " + entry.essid + " (" + entry.bssid + ")? [y/N] ")
+	if answer == null then answer = ""
+	answer = answer.trim.lower
+	if answer != "y" and answer != "yes" then exit("Cancelled.")
+
+	entries.remove(index)
+	saveEntries(store, entries)
+	print("Removed " + entry.essid + " (" + entry.bssid + ").")
+end function
+
+doList = function()
+	computer = getComputer()
+	store = ensureStore(computer)
+	entries = loadEntries(store)
+	interfaces = getWifiInterfaces(computer)
+	signals = {}
+	if interfaces.len > 0 then signals = collectSignals(computer, interfaces)
+
+	print(padRight("BSSID", 19) + padRight("PWR", 5) + padRight("ESSID", 9) + "PASSWD")
+	for entry in entries
+		power = ""
+		key = entry.bssid.lower
+		if signals.hasIndex(key) == 1 then power = signals[key]
+		print(padRight(entry.bssid, 19) + padRight(power, 5) + padRight(entry.essid, 9) + entry.password)
+	end for
+end function
+
+doConnect = function()
+	identifier = ("" + cliArgs[1]).trim
+	if identifier == "" then exit("Error: Network identifier cannot be empty.")
+
+	computer = getComputer()
+	interfaces = getWifiInterfaces(computer)
+	if interfaces.len == 0 then exit("airmanage: Network device not found")
+
+	scanResult = scanNetwork(computer, interfaces, identifier, isBssidValue(identifier))
+	target = scanResult.target
+	if target == null then exit("Error: Can't find network " + identifier)
+	bssid = target.bssid
+	essid = target.essid
+	if bssid == "" or essid == "" then
+		exit("Error: Incomplete network information")
+	end if
+	if not isSafeField(bssid) or not isSafeField(essid) then
+		exit("Error: Network information contains unsupported characters")
+	end if
+
+	store = ensureStore(computer)
+	entries = loadEntries(store)
+	index = findEntry(entries, identifier, isBssidValue(identifier))
+	savedPassword = null
+	if index != null then savedPassword = entries[index].password
+
+	if savedPassword != null then
+		connectResult = computer.connect_wifi(target.iface, target.bssid, target.essid, savedPassword)
+		if connectResult == 1 then
+			print("Connected to " + target.essid + " (" + target.bssid + ").")
+			return
+		end if
+		if not isPasswordFailure(connectResult) then connectionFailure(connectResult)
+		print("Saved password was rejected.")
+		answer = user_input("Crack a new password for '" + target.essid + "' and connect? [y/N] ")
+	else
+		answer = user_input("No saved password for '" + target.essid + "'. Crack it and connect? [y/N] ")
+	end if
+
+	if answer == null then answer = ""
+	answer = answer.trim.lower
+	if answer != "y" and answer != "yes" then exit("Cancelled.")
+
+	cryptoTools = include_lib("/lib/crypto.so")
+	if cryptoTools == null then exit("airmanage: Missing crypto library")
+	password = crackPassword(computer, target, cryptoTools)
+	if not isSafeField(password) then
+		exit("Error: Password contains unsupported characters")
+	end if
+
+	connectResult = computer.connect_wifi(target.iface, target.bssid, target.essid, password)
+	if connectResult != 1 then connectionFailure(connectResult)
+	print("Connected to " + target.essid + " (" + target.bssid + ").")
+
+	action = upsertEntry(entries, bssid, essid, password)
+	saveEntries(store, entries)
+	print("Password: " + password)
+	if action == "added" then
+		print("Saved credentials in " + store.path + ".")
+	else
+		print("Updated saved credentials in " + store.path + ".")
+	end if
+end function
+
+main = function()
+	if cliArgs.len == 0 then
+		printGeneralHelp()
+		return
+	end if
+
+	command = cliArgs[0].lower
+	if command == "-v" or command == "--version" then
+		print("Airmanage v0.1.1")
+		return
+	end if
+
+	if command == "help" or isHelpArg(cliArgs[0]) then
+		if cliArgs.len >= 2 and cliArgs[1].lower == "add" then
+			printAddHelp()
+		else if cliArgs.len >= 2 and cliArgs[1].lower == "remove" then
+			printRemoveHelp()
+		else if cliArgs.len >= 2 and cliArgs[1].lower == "list" then
+			printListHelp()
+		else if cliArgs.len >= 2 and cliArgs[1].lower == "connect" then
+			printConnectHelp()
+		else
+			printGeneralHelp()
+		end if
+		return
+	end if
+
+	if command == "add" then
+		if cliArgs.len > 1 then
+			for index in range(1, cliArgs.len - 1)
+				if isHelpArg(cliArgs[index]) then
+					printAddHelp()
+					return
+				end if
+			end for
+		end if
+		if cliArgs.len < 2 then
+			exit("Error: Missing network identifier. Use 'airmanage add -h' for help.")
+		end if
+		if cliArgs.len > 3 then
+			exit("Error: Too many arguments. Use 'airmanage add -h' for help.")
+		end if
+		doAdd()
+		return
+	end if
+
+	if command == "remove" then
+		if cliArgs.len > 1 then
+			for index in range(1, cliArgs.len - 1)
+				if isHelpArg(cliArgs[index]) then
+					printRemoveHelp()
+					return
+				end if
+			end for
+		end if
+		if cliArgs.len < 2 then
+			exit("Error: Missing network identifier. Use 'airmanage remove -h' for help.")
+		end if
+		if cliArgs.len > 2 then
+			exit("Error: Too many arguments. Use 'airmanage remove -h' for help.")
+		end if
+		doRemove()
+		return
+	end if
+
+	if command == "list" then
+		if cliArgs.len > 1 then
+			for index in range(1, cliArgs.len - 1)
+				if isHelpArg(cliArgs[index]) then
+					printListHelp()
+					return
+				end if
+			end for
+			exit("Error: Too many arguments. Use 'airmanage list -h' for help.")
+		end if
+		doList()
+		return
+	end if
+
+	if command == "connect" then
+		if cliArgs.len > 1 then
+			for index in range(1, cliArgs.len - 1)
+				if isHelpArg(cliArgs[index]) then
+					printConnectHelp()
+					return
+				end if
+			end for
+		end if
+		if cliArgs.len < 2 then
+			exit("Error: Missing network identifier. Use 'airmanage connect -h' for help.")
+		end if
+		if cliArgs.len > 2 then
+			exit("Error: Too many arguments. Use 'airmanage connect -h' for help.")
+		end if
+		doConnect()
+		return
+	end if
+
+	exit("Error: Unknown command '" + cliArgs[0] + "'. Use 'airmanage -h' for help.")
+end function
+
+cliArgs = params
+main()
