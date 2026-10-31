@@ -14,7 +14,7 @@ GetPassword = function(userPass)
 	return password
 end function
 
-if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>decipherx (-W/-R/-md5) [encrypted file]</b>")
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>decipherp (-W/-R/-md5) [encrypted file]</b>")
 WriteFile = false
 Recursive = false
 if params.len == 2 then
@@ -31,13 +31,13 @@ end if
 if Recursive then
 	origFile = params[1]
 	file = get_shell.host_computer.File(origFile)
-	if not file then exit("decipherx: can't find " + origFile)
-	if not file.has_permission("r") then exit("decipherx: can't read folder. Permission denied")
+	if not file then exit("decipherp: can't find " + origFile)
+	if not file.has_permission("r") then exit("decipherp: can't read folder. Permission denied")
 	if WriteFile and not file.has_permission("w") then
-		print("decipherx: can't write file. Change to read only")
+		print("decipherp: can't write file. Change to read only")
 		WriteFile = false
 	end if
-	if not file.is_folder then exit("decipherx: " + origFile + " is not a folder")
+	if not file.is_folder then exit("decipherp: " + origFile + " is not a folder")
 	
 	queue = file.get_files + file.get_folders
 	while len(queue) != 0
@@ -89,7 +89,7 @@ if not file then exit("decipher: can't find " + origFile)
 if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
 if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
 if WriteFile and not file.has_permission("w") then
-	print("decipherx: can't write file. Change to read only")
+	print("decipherp: can't write file. Change to read only")
 	WriteFile = false
 end if
 if file.get_content.len == 0 then exit("decipher: no users found")
